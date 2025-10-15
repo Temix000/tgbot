@@ -18,7 +18,7 @@ SETTINGS_FILE = "bot_settings.json"
 
 def load_settings():
     default_settings = {
-        "reminder_times": ["22:00"],
+        "reminder_times": ["17:00"],
         "messages": [
             "Привет, котик! 😊 Пора принять таблетки!",
             "Эй, солнышко! 🌞 Напоминаю про таблетки!",
