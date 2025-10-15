@@ -18,7 +18,7 @@ SETTINGS_FILE = "bot_settings.json"
 
 def load_settings():
     default_settings = {
-        "reminder_times": ["09:00", "21:00"],
+        "reminder_times": ["22:00"],
         "messages": [
             "Привет, котик! 😊 Пора принять таблетки!",
             "Эй, солнышко! 🌞 Напоминаю про таблетки!",
@@ -53,7 +53,7 @@ async def start_command(update: Update, context: CallbackContext):
     welcome_text = (
         "Привет! Я твой бот-напоминатель о таблетках! 💊\n"
         f"Напоминания в: {', '.join(settings['reminder_times'])}\n"
-        "Нажимай кнопку когда примёшь таблетки!"
+        "Нажимай кнопку когда примешь таблетки!"
     )
     
     await update.message.reply_text(welcome_text, reply_markup=reply_markup)
@@ -87,7 +87,7 @@ async def addmessage_command(update: Update, context: CallbackContext):
         await update.message.reply_text("Напишите: /addmessage Ваш текст")
 
 async def handle_pill_taken(update: Update, context: CallbackContext):
-    responses = ["Молодец, котик! ❤️", "Умничка! 🎉", "Отлично! 💪", "Супер! 😊"]
+    responses = ["Да ты моя зая❤️", "Умничка. Люблю тебя❤️", "Какая молодец💪", "Киса молодец😊"]
     await update.message.reply_text(random.choice(responses))
 
 async def send_reminder():
