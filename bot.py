@@ -1,6 +1,6 @@
 from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext
-import asyncio
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
+import schedule
 import time
 import random
 import json
@@ -9,107 +9,147 @@ from datetime import datetime
 import os
 
 # === НАСТРОЙКИ ===
-BOT_TOKEN = "8028065845:AAHuXMq19dNNjXfJBrSLcC3F5-5uBAsF0CE"  # Токен от @BotFather
+BOT_TOKEN = os.environ['BOT_TOKEN']
 
-# Здесь будем хранить chat_id пользователя
-user_chat_id = None
+# Файл для хранения настроек
+SETTINGS_FILE = "bot_settings.json"
 
-# Список сообщений (можно менять)
-MESSAGES = [
+def load_settings():
+    default_settings = {
+        "reminder_times": ["21:00"],
+        "messages": [
     "Привет, котик! 😊 Пора принять таблетки!",
     "Эй, солнышко! 🌞 Напоминаю про таблетки!",
     "Котик, время пить таблетки! 💊 Ты справишься!",
     "Мур-мур! 🐱 Таблетки ждут!",
     "Любимая, не пропусти приём таблеток! 💖"
-]
-
-# === ФУНКЦИИ БОТА ===
-
-# Обработчик команды /start
-async def start_command(update: Update, context: CallbackContext):
-    global user_chat_id
-    user_chat_id = update.effective_chat.id
+        ],
+        "user_chat_id": None
+    }
     
-    # Создаем клавиатуру с кнопкой
+    try:
+        with open(SETTINGS_FILE, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except:
+        return default_settings
+
+def save_settings(settings):
+    with open(SETTINGS_FILE, 'w', encoding='utf-8') as f:
+        json.dump(settings, f, ensure_ascii=False, indent=2)
+
+# Загружаем настройки
+settings = load_settings()
+
+# === КОМАНДЫ БОТА ===
+def start_command(update: Update, context: CallbackContext):
+    settings["user_chat_id"] = update.effective_chat.id
+    save_settings(settings)
+    
     keyboard = [[KeyboardButton("Выпила! ✅")]]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     
     welcome_text = (
         "Привет! Я твой бот-напоминатель о таблетках! 💊\n"
-        "Теперь я буду присылать тебе напоминания в нужное время.\n"
-        "Просто нажимай кнопку 'Выпила! ✅', когда примёшь таблетки!"
+        f"Напоминания в: {', '.join(settings['reminder_times'])}\n"
+        "Нажимай кнопку когда примёшь таблетки!"
     )
     
-    await update.message.reply_text(welcome_text, reply_markup=reply_markup)
-    print(f"✅ Пользователь активирован! Chat ID: {user_chat_id}")
+    update.message.reply_text(welcome_text, reply_markup=reply_markup)
+    print(f"✅ Пользователь активирован! Chat ID: {settings['user_chat_id']}")
 
-# Обработчик кнопки "Выпила!"
-async def handle_pill_taken(update: Update, context: CallbackContext):
-    responses = [
-        "Да ты моя зая❤️ Продолжай в том же духе :)",
-        "Умничка ты моя🎉 Продолжаем заботиться о себе.",
-        "Киса выпила таблеточку❤️ Ты у меня такая ответственная =)",
-        "Супер! 😊 Я тобой горжусь!",
-        "Спасибо, что не забыла выпить таблеточку. Я люблю тебя❤️",
-    ]
-    
-    await update.message.reply_text(random.choice(responses))
+def settime_command(update: Update, context: CallbackContext):
+    if context.args:
+        new_times = context.args
+        valid_times = []
+        for time_str in new_times:
+            try:
+                datetime.strptime(time_str, "%H:%M")
+                valid_times.append(time_str)
+            except ValueError:
+                update.message.reply_text(f"❌ Неверный формат: {time_str}. Используйте ЧЧ:ММ")
+                return
+        
+        settings["reminder_times"] = valid_times
+        save_settings(settings)
+        
+        update.message.reply_text(f"✅ Новое время: {', '.join(valid_times)}")
+        print(f"⏰ Время изменено: {valid_times}")
 
-# Функция отправки напоминания
-async def send_reminder():
-    if user_chat_id is None:
-        print("❌ Chat ID не установлен. Попросите написать /start")
+def addmessage_command(update: Update, context: CallbackContext):
+    if context.args:
+        new_message = " ".join(context.args)
+        settings["messages"].append(new_message)
+        save_settings(settings)
+        update.message.reply_text(f"✅ Сообщение добавлено!")
+    else:
+        update.message.reply_text("Напишите: /addmessage Ваш текст")
+
+def handle_pill_taken(update: Update, context: CallbackContext):
+    responses = ["Молодец, котик! ❤️", "Умничка! 🎉", "Отлично! 💪", "Супер! 😊"]
+    update.message.reply_text(random.choice(responses))
+
+def send_reminder():
+    if not settings["user_chat_id"]:
+        print("❌ Chat ID не установлен")
         return
     
     try:
-        application = Application.builder().token(BOT_TOKEN).build()
+        updater = Updater(token=BOT_TOKEN, use_context=True)
         
-        # Создаем клавиатуру
         keyboard = [[KeyboardButton("Выпила! ✅")]]
         reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
         
-        message = random.choice(MESSAGES)
+        message = random.choice(settings["messages"])
         
-        await application.bot.send_message(
-            chat_id=user_chat_id,
+        updater.bot.send_message(
+            chat_id=settings["user_chat_id"],
             text=message,
             reply_markup=reply_markup
         )
         print(f"✅ Напоминание отправлено!")
         
     except Exception as e:
-        print(f"❌ Ошибка отправки: {e}")
+        print(f"❌ Ошибка: {e}")
 
-# Функция для запуска расписания
-def run_scheduler():
-    # НАСТРОЙТЕ ВРЕМЯ ЗДЕСЬ
-    schedule.every().day.at("22:00").do(lambda: asyncio.run(send_reminder()))  # Вечер
-    
-    print("⏰ Расписание настроено на 21:00")
+def check_time_and_remind():
+    print("⏰ Таймер запущен...")
     
     while True:
-        schedule.run_pending()
-        time.sleep(60)
+        try:
+            current_time = datetime.now().strftime("%H:%M")
+            
+            if current_time in settings["reminder_times"]:
+                send_reminder()
+                time.sleep(60)
+            
+            # Перезагружаем настройки каждую минуту
+            global settings
+            settings = load_settings()
+            time.sleep(30)
+        except Exception as e:
+            print(f"❌ Ошибка в таймере: {e}")
+            time.sleep(60)
 
-# Основная функция
 def main():
-    # Создаем приложение бота
-    application = Application.builder().token(BOT_TOKEN).build()
+    updater = Updater(token=BOT_TOKEN, use_context=True)
+    dispatcher = updater.dispatcher
     
-    # Добавляем обработчики
-    application.add_handler(CommandHandler("start", start_command))
-    application.add_handler(MessageHandler(filters.Text("Выпила! ✅"), handle_pill_taken))
+    # Обработчики
+    dispatcher.add_handler(CommandHandler("start", start_command))
+    dispatcher.add_handler(CommandHandler("settime", settime_command))
+    dispatcher.add_handler(CommandHandler("addmessage", addmessage_command))
+    dispatcher.add_handler(MessageHandler(Filters.text("Выпила! ✅"), handle_pill_taken))
     
-    print("🚀 Бот запускается...")
-    print("📝 Попросите девушку написать боту команду /start")
+    print("🚀 Бот запускается на Railway...")
     
-    # Запускаем расписание в отдельном потоке
-    scheduler_thread = Thread(target=run_scheduler)
-    scheduler_thread.daemon = True
-    scheduler_thread.start()
+    # Запускаем таймер в отдельном потоке
+    timer_thread = threading.Thread(target=check_time_and_remind)
+    timer_thread.daemon = True
+    timer_thread.start()
     
     # Запускаем бота
-    application.run_polling()
+    updater.start_polling()
+    updater.idle()
 
 if __name__ == "__main__":
     main()
