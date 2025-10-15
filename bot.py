@@ -42,6 +42,7 @@ settings = load_settings()
 
 # === КОМАНДЫ БОТА ===
 def start_command(update: Update, context: CallbackContext):
+    global settings
     settings["user_chat_id"] = update.effective_chat.id
     save_settings(settings)
     
@@ -58,6 +59,7 @@ def start_command(update: Update, context: CallbackContext):
     print(f"✅ Пользователь активирован! Chat ID: {settings['user_chat_id']}")
 
 def settime_command(update: Update, context: CallbackContext):
+    global settings
     if context.args:
         new_times = context.args
         valid_times = []
@@ -76,6 +78,7 @@ def settime_command(update: Update, context: CallbackContext):
         print(f"⏰ Время изменено: {valid_times}")
 
 def addmessage_command(update: Update, context: CallbackContext):
+    global settings
     if context.args:
         new_message = " ".join(context.args)
         settings["messages"].append(new_message)
@@ -89,6 +92,7 @@ def handle_pill_taken(update: Update, context: CallbackContext):
     update.message.reply_text(random.choice(responses))
 
 def send_reminder():
+    global settings
     if not settings["user_chat_id"]:
         print("❌ Chat ID не установлен")
         return
@@ -112,6 +116,7 @@ def send_reminder():
         print(f"❌ Ошибка: {e}")
 
 def check_time_and_remind():
+    global settings
     print("⏰ Таймер запущен...")
     
     while True:
@@ -123,7 +128,6 @@ def check_time_and_remind():
                 time.sleep(60)
             
             # Перезагружаем настройки каждую минуту
-            global settings
             settings = load_settings()
             time.sleep(30)
         except Exception as e:
